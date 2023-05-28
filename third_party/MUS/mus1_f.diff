@@ -1,0 +1,40 @@
+322c322
+<        WRITE(*,*) 'RETURN FROM MUSN : NO ITERATIONS =',ITTOT
+---
+> C       WRITE(*,*) 'RETURN FROM MUSN : NO ITERATIONS =',ITTOT
+364,365c364,367
+<  6000 WRITE(*,100) IERROR
+<       CALL ERRHAN(IERROR,ER,NEG)
+---
+>  6000 CONTINUE
+> C KLM: SILENCED THE ERROR MESSAGE, RETURNING IERROR IS ENOUGH
+> C      WRITE(*,100) IERROR
+> C      CALL ERRHAN(IERROR,ER,NEG)
+626a629,633
+> C-------------KLM-------------
+>           DO 1370 I = 1, N
+>             IF (DABS(S(I,K)).GT.1.0D2) GOTO 5300
+>  1370     CONTINUE
+> C-------------KLM-------------
+674a682,685
+> C-------------KLM-------------
+>  5300 IERROR = 902
+>       RETURN
+> C-------------KLM-------------
+829a841,845
+> C------------------ KLM ---------------
+>         DO 1850 I = 1, N
+>           IF (DABS(S(I,K)).GT.1.0D2) GOTO 5300
+>  1850   CONTINUE
+> C------------------ KLM ---------------
+900a917,921
+> C------------------ KLM ---------------
+>         DO 2450 J = 1, N
+>           IF (DABS(S(J,KPL1)).GT.1D2) GOTO 5300
+>  2450   CONTINUE
+> C------------------ KLM ---------------
+1052a1074,1077
+> C--------------KLM------------
+>  5300 IERROR = 901
+>       RETURN
+> C--------------KLM------------

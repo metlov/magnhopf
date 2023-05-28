@@ -1,0 +1,10 @@
+There were some local changes, highlighted in *.diff files.
+
+The most important set if changes is in mus1.f, which handles some
+previously unhandled divergences during the ODE integration and
+turns them into the error codes (before the integrator fails with FPE).
+
+These error conditions deserve to be studied more closely, but unfortunately
+I can't find time for this right now.
+
+Konstantin L. Metlov

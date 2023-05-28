@@ -1,0 +1,62 @@
+! This is a test problem definition using the TEST_STATE, which is
+! a trivial example of an analytically-specified f(X,Y) for testing
+! purposes
+&TRACER
+version = 1
+! The version of the parameter set in this file. Used for enabling backwards
+! compatibility. Currently the only valid version is 1
+
+display_progress = 2
+! How to display computation progress on STDERR. The valid values are:
+!    0   -- do not display progress at all
+!    1   -- simple textual linear ASCII log
+!    2   -- a "graphical" ANSI rendering of phase diagram (requires capable
+!           terminal)
+
+term_width =80
+term_height=25
+! assumed terminal window width and height for ANSI rendering.
+
+delay = 50
+! Time delay, bounding the frame computation from below. Useful with "graphical"
+! progress display to be able to see the progress of fast computations with
+! naked eye. If the computation by itself takes longer than the above-specified
+! amount of time, no additional delay will be introduced.
+! The time units correspond to the return values of system_clock() intrinsic,
+! which is system-dependent. On my Linux system it is in 1/100s of second.
+
+log_file_name = "TEST.LOG"
+! The file name for the computation LOG file, used for managing restarts and
+! avoiding repetitive computations. If not supplied or an empty string, the
+! computation will be done entirely in memory. Otherwise must be a valid file
+! name. The LOG file will be created if it does not exist.
+
+gridx1 = -5.0
+gridx2 = 5.0
+gridy1 = -5.0
+gridy2 = 5.0
+gridnx = 50
+gridny = 50
+! These parameters define the computation grid (the resolution of the tracer).
+! The grid is a rectangle, spanning from {gridx1,gridy1} tp {gridx2,gridy2},
+! each side of the rectangle is subdivided into gridnx and gridny grid lines
+! respectively.
+
+state_selector = 1
+! The type of the initial state to load in the next namelist section. The
+! state defines the actual problem to be solved and each supported state type
+! has its own set of initialization parameters, explained in their own example
+! files.
+
+/
+&INITIAL_TESTING_STATE
+! The target function is an analytically specified superposition of two
+! ellipses. It can be computed directly at any point of the map and does
+! not require "careful" moving from point to point for tracing the phase
+! diagram (e.g. the stock marching squares algorithm would handle it easily).
+!
+! The only parameters are the position on the initial point on the phase
+! diagram :
+sx=0
+sy=-3
+/

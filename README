@@ -1,0 +1,65 @@
+This is the library for computing equilibrium energy of magnetic hopfions
+and other states of a classical helimagnet with the energy density
+
+  E = Eex + Ez + Ea + Edm + Ems
+
+where
+ M = {Mx[X, Y, Z], My[X, Y, Z], Mz[X, Y, Z]}
+ Eex = C/2 Sum[Grad[M[[i]], {X, Y, Z}]^2, {i, 1, 3}]
+ Ez = - H Mz[X, Y, Z]
+ Ea = - K Mz[X, Y, Z]^2
+ Edm = D M.Curl[M, {X, Y, Z}]
+and Ems is the self-energy of interacting volume charges with the density
+ rho = Div[M, {X, Y, Z}]
+whose total energy is a double-volume integral
+ mu0 Ms^2 1/2 1/(4Pi) Integrate[rho[X1,Y1,Z1] rho[X2,Y2,Z2] /
+    Sqrt[(X1-X2)^2+(Y1-Y2)^2+(Z1-Z2)^2], {X1,-LX,LX}, {Y1,-LY,LY},
+    {Z1,-LZ,LZ}, {X2,-LX,LX}, {Y2,-LY,LY}, {Z2,-LZ,LZ} ]
+where the integration is done over the unit cell of the hopfion lattice.
+
+If the total energy per unit volume is normalized by mu0 Ms^2, the
+problem turns out to have three independent dimensionless parameters:
+q = 2 K C/D^2, h=mu0 Ms H C/D^2 and mu^2 = mu0 Ms^2 C/D^2. The small values
+of mu correspond to negligible magnetostatic energy since mu^2 enters the
+normalized energy density as a prefactor to Ems.
+
+The hopfion variational model is defined in [Physica D 443, 133561 (2023)].
+It depends on the hopfion radius R (embedded in the dimensionless parameter
+nu = C/(D R) of the normalized energy density) and a function 0<f(x)<1, 
+describing the hopfion profile as a function of the dimensionless radial
+variable x=r/R .
+
+The compilation was tested using gcc and gfortran, it also requires libreadline
+headers to be installed. After running a successful make, the binaries are
+built in the __bin_XXX directory, corresponding to your architecture (most
+commonly "_bin_x86_64") under the checkout root.
+
+There are three executables:
+
+TEST      -- runs the testsuite and reports the number of successful and failed
+             tests.
+
+HOPFSHELL -- interactive program for exploring the phase diagram in h, q, mu
+             space and creating initial states for phase diagram tracer. To
+             see the list of commands, type help (or just "h") in the prompt.
+
+PHB_TRACE -- non-interactive (although with optional fancy progress indicator)
+             config-driven phase diagram boundary tracer. The examples of
+             the config files are in ./examples/ directory.
+
+
+
+(c) 2023 Konstantin L. Metlov <metlov@donfti.ru>
+
+This program is free software: you can redistribute it and/or modify
+under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You can find the text of the GNU General Public License is in the LICENSE file.
+If not, see <https://www.gnu.org/licenses/>.

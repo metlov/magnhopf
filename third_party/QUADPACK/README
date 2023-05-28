@@ -1,0 +1,7 @@
+This is a vectorized version of dqng.f , which tries to sample many
+integrand points at once. Moreover, the abscissae of these points
+in batch evaluations are always sorted. It is intended to improve
+performance in the case when the integrand is specified via the
+interpolation polynomial.
+
+Konstantin L. Metlov

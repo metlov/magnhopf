@@ -1,0 +1,9 @@
+*~
+
+# ignore binaries and objects
+/_bin_*/*
+
+# this file is derived from src/skyrmion_ground.dat and can be rebuilt
+# automatically by the Makefile. The reason it is in src/ is the convenience
+# of access to it via the Fortran's include statement.
+src/skyrmion_ground.inc

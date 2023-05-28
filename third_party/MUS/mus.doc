@@ -1,0 +1,909 @@
+                                    MUS                                       
+                                                                              
+                    A package for solving two-point BVPs                      
+                                                                              
+                          Double precision version                            
+                                                                              
+   Authors: R.M.M. Mattheij, G.W.M. Staarink.                                 
+                                                                              
+                                                                              
+   Adress: G.W.M. Staarink                                                    
+           Singel 90
+           6584 BK Molenhoek (LB)                                             
+           The Netherlands                                                    
+                                                                              
+                                                                              
+                                                                              
+   The important routines for the user are:                                   
+                                                                              
+   MUSL : for solving linear two-point BVP,                                   
+                                                                              
+   MUSN : for solving nonlinear two-point BVP.                                
+                                                                              
+   This package contains the source text of the subroutines of the MUS        
+   package, the documentation for the subroutines MUSL and MUSN and two examples.                                                          
+   The source text is divided into the three files MUS1.FOR, MUS2.FOR and MUS3.FOR.
+   The documentation can be found in the file MUS.DOC and the two examples in the
+   files MUSLEX.FOR and MUSNEX.FOR.                              
+                                                                              
+                                                                              
+                                              Yours sincerely                 
+                                                                              
+                                                                              
+                                               G.W.M. Staarink                
+                                               R.M.M. Mattheij                
+                                                                              
+
+
+****************
+SPECIFICATION  MUSL
+****************
+
+      SUBROUTINE MUSL(FLIN,FDIF,N,IHOM,A,B,MA,MB,BCV,AMP,ER,NRTI,TI,
+     1                NTI,X,U,NU,Q,D,KPART,PHIREC,W,LW,IW,LIW,IERROR)
+C     INTEGER N,IHOM,NRTI,NTI,NU,LW,IW(LIW),LIW,IERROR
+C     DOUBLE PRECISION A,B,MA(N,N),MB(N,N),BCV(N),AMP,ER(5),TI(NTI),
+C    1                 X(N,NTI),U(NU,NTI),Q(N,N,NTI),D(N,NTI),
+C    2                 PHIREC(NU,NTI),W(LW)
+C     EXTERNAL FLIN,FDIF
+
+****************
+Purpose
+****************
+
+MUSL solves the linear two-point BVP:
+
+       dx(t) / dt  = L(t)x(t) + r(t)     , A  <= t <= B or B <= t <= A ,
+
+with BC:
+
+       MA x(A) + MB x(B) = BCV
+
+where MA and MB are the BC matrices and BCV the BC vector.
+
+****************
+Method
+****************
+
+MUSL is an implementation of the multiple shooting method for solving non stiff
+linear two-point boundary value problems as described in [1] and [2].
+One of the features of this method is that the necessary shooting points are
+determined by the method itself. Therefore, instead of supplying shooting points
+only those points where the solution is required, the so called output points,
+have to be supplied.
+
+[1] R.M.M. Mattheij, G.W.M. Staarink, An efficient algorithm for solving general
+    linear two-point BVP, SIAM J. Sci. Stat. Comp. 5 (1984), 745-763.
+[2] R.M.M. Mattheij, G.W.M. Staarink, On Optimal Shooting Intervals, Math. Comp.
+    42 (1984) 25-40.
+
+****************
+Parameters
+****************
+
+
+FLIN    SUBROUTINE, supplied by the user with specification:
+
+        SUBROUTINE FLIN(T,X,F)
+        DOUBLE PRECISION T,X(N),F(N)
+
+        where N is the order of the system. FLIN must evaluate the homogeneous
+        part of the differential equation, L(t)x(t), for t=T and x(t)=X and
+        place the result in F(1),F(2),...,F(N).
+
+        FLIN must be declared as EXTERNAL in the (sub)program from which MUSL
+        is called.
+
+FDIF    SUBROUTINE, supplied by the user, with specification:
+
+        SUBROUTINE FDIF(T,X,F)
+        DOUBLE PRECISION T,X(N),F(N)
+
+        where N is the order of the system. FDIF must evaluate the righthandside
+        of the inhomogeneous differential equation, L(t)x(t) + r(t), for t=T and
+        x(t)=X and place the result in F(1),F(2),...,F(N).
+
+        FDIF must be declared as EXTERNAL in the (sub)program from which MUSL
+        is called.
+
+        In the case that the system is homogeneous FDIF is the same as FLIN.
+
+N       INTEGER, the order of the system.
+        Unchanged on exit.
+
+IHOM    INTEGER
+        IHOM indicates whether the system is homogeneous or inhomogeneous.
+        IHOM = 0 : the system is homogeneous,
+        IHOM = 1 : the system is inhomogeneous.
+        Unchanged on exit.
+
+A,B     DOUBLE PRECISION, the two boundary points.
+        Unchanged on exit.
+
+MA,MB   DOUBLE PRECISION array of dimension (N,N).
+        On entry :MA and MB must contain the matrices in the BC:
+        MA x(A)  + MB x(B)  = BCV .
+        Unchanged on exit.
+
+BCV     DOUBLE PRECISION array of dimension (N).
+        On entry BCV must contain the BC vector.
+        Unchanged on exit.
+
+AMP     DOUBLE PRECISION.
+        On entry AMP must contain the allowed incremental factor of the
+        homogeneous solutions between two succesive output points. If the incre-
+        ment of a homogeneous solution between two succesive output points be-
+        comes greater than 2*AMP, a new output point is inserted.
+        If AMP <= 1 the defaults are: NRTI = 0 : max(ER(1),ER(2)) / ER(3),
+        otherwise the allowed increment is unbounded.
+
+ER      DOUBLE PRECISION array of dimension (5).
+        On entry ER(1) must contain a relative tolerance for solving the differ-
+        ential equation. If the relative tolerance is smaller then 1.d-12 the
+        subroutine will change ER(1) into  1.d-12 + ER(3).
+        On entry ER(2) must contain an absolute tolerance for solving the
+        differential equation.
+        On entry ER(3) must contain the machine precision.
+        On exit ER(2) and ER(3) are unchanged.
+        On exit ER(4) contains an estimation of the condition number of the BVP.
+        On exit ER(5) contains an estimated error amplification factor.
+
+NRTI    INTEGER.
+        On entry NRTI is used to specify the required output points. There are
+        three ways to specify the required output points:
+        1) NRTI = 0, the subroutine automatically determines the output points
+                     using the allowed incremental factor AMP.
+        2) NRTI = 1, the output points are supplied by the user in the array TI.
+        3) NRTI > 1, the subroutine computes the (NRTI+1) output points TI(K) by
+                          TI(k) = A + (k-1) * (B - A) / NRTI ;
+                     so TI(1) = A and TI(NRTI+1) = B .
+        Depending on the allowed incremental factor AMP, more output points may
+        be inserted in cases 2 and 3.
+        On exit NRTI contains the total number of output points.
+
+TI      DOUBLE PRECISION array of dimension (NTI).
+        On entry: if NRTI = 1 , TI must contain the required output points
+        in strict monotone order: A=TI(1) < ... < TI(l)=B or
+        A=TI(1) > ... > TI(l)=B (l denotes the total number of required output
+        points).
+        On exit: TI(i), i=1,2,...,NRTI, contains the output points.
+
+NTI     INTEGER.
+        NTI is the dimension of TI and one of the dimensions of the arrays X, U,
+        Q, D, PHIREC.
+        NTI >= the total number of output points + 3.
+        (i.e. if the routine was called with NRTI > 1 and AMP <= 1 the total
+        number of output points is the entry value of NRTI + 1, so NTI should be
+        at least the entry value of NRTI + 4).
+        Unchanged on exit.
+
+X       DOUBLE PRECISION array of dimension (N,NTI).
+        On exit X(i,k) , i=1,2,...,N contains the solution of the BVP at the
+        output point TI(k), k=1,...,NRTI.
+
+U       DOUBLE PRECISION array of dimension (NU,NTI).
+        On exit U(i,k) i=1,2,...,NU contains the relevant elements of the
+        upper triangular matrix U(k), k=2,...,NRTI. The elements are stored
+        column wise, the jth column of U(k) is stored in U(nj+1,k), U(nj+2,k),
+        ...,U(nj+j,k), where nj = (j-1) * j / 2.
+
+NU      INTEGER.
+        NU is one of the dimensions of U and PHIREC.
+        NU must be at least equal to N * (N+1) / 2.
+        Unchanged on exit.
+
+Q       DOUBLE PRECISION array of dimension (N,N,NTI).
+        On exit Q(i,j,k) i=1,2,....,N, j=1,2,.....,N contains the N columns of
+        the orthogonal matrix Q(k), k=1,...,NRTI.
+
+D       DOUBLE PRECISION array of dimension (N,NTI).
+        If IHOM = 0 the array D has no real use and the user is recommanded
+        to use the same array for the X and the D.
+        If IHOM = 1 : on exit D(i,k) i=1,2,...,N contains the inhomogeneous
+        term d(k), k=1,2,...,NRTI, of the multiple shooting recursion.
+
+KPART   INTEGER.
+        On exit KPART contains the global k-partition of the upper triangular
+        matrices U(k).
+
+PHIREC  DOUBLE PRECISION array of dimension (NU,NTI).
+        On exit PHIREC contains a fundamental solution of the multiple shooting
+        recursion. The fundamental solution is upper triangular and is stored
+        in the same way as the U(k).
+
+W       DOUBLE PRECISION array of dimension (LW).
+        Used as work space.
+
+LW      INTEGER
+        LW is the dimension of W. LW >= 8*N + 2*N*N.
+        Unchanged on exit.
+
+IW      INTEGER array of dimension (LIW)
+        Used as work space.
+
+LIW     INTEGER
+        LIW is the dimension of IW. LIW >= 3*N.
+        Unchanged on exit.
+
+IERROR  INTEGER
+        Error indicator; IERROR = 0 then there are no errors detected.
+
+
+****************
+Error indicators
+****************
+
+Errors detected by the subroutine
+
+IERROR
+
+  0    No errors detected .
+
+100    INPUT ERROR: either N < 1 or IHOM < 0 or NRTI < 0 or NTI < 5 or
+       NU < N * (N+1) / 2 or A=B .
+       TERMINAL ERROR.
+
+101    INPUT ERROR: either ER(1) or ER(2) or ER(3) is negative.
+       TERMINAL ERROR.
+
+103    INPUT ERROR: either LW < 8*N + 2*N*N or LIW < 3*N .
+       TERMINAL ERROR
+
+120    INPUT ERROR: the routine was called with NRTI = 1, but the given
+       output points in the array TI are not in strict monotone order.
+       TERMINAL ERROR.
+
+121    INPUT ERROR: the routine was called with NRTI = 1, but the first given
+       output point or the last output point is not equal to A or B.
+       TERMINAL ERROR.
+
+122    INPUT ERROR: the value of NTI is too small; the number of output points
+       is greater than NTI-3.
+       TERMINAL ERROR.
+
+200    This indicates that there is a minor shooting interval on which the
+       incremental growth is greater than the AMP. This is to be attributed to
+       the used method for computing the fundamental solution, and may
+       jeopardize the global accuracy if ER(3) * AMP > max(ER(1),ER(2)).
+       WARNING ERROR.
+
+213    This indicates that the relative tolerance was too small. The subroutine
+       has changed it into a suitable value.
+       WARNING ERROR.
+
+215    This indicates that  during integration the particular solution or a
+       homogeneous solution has vanished, making a pure relative error test
+       impossible. Must use non-zero absolute tolerance to continue.
+       TERMINAL ERROR.
+
+216    This indicates that during integration the requested accuracy could not
+       be achieved. User must increase error tolerance.
+       TERMINAL ERROR.
+
+218    This indicates that the input parameter N <= 0, or that either the
+       relative tolerance or the absolute tolerance is negative.
+       TERMINAL ERROR.
+
+240    This indicates that the global error is probably larger than the error
+       tolerance due to instabilities in the system. Most likely the problem is
+       ill-conditioned. Output value is the estimated error amplification factor
+       ER(5).
+       WARNING ERROR.
+
+250    This indicates that one of the U(k) is singular.
+       TERMINAL ERROR.
+
+260    This indicates that the problem is probably too ill-conditioned with
+       respect to the BC.
+       TERMINAL ERROR.
+
+
+****************
+Auxiliary Routines
+****************
+
+Calls are made to the MUS library routines DAMTES, DBCMAV, DCDI, DCNRHS,
+DCPHIS, DCROUT, DDUR, DFQUS, DFUNRC, DGTUR, DINPRO, DINTCH, DKPCH, DLUDEC,
+DMATVC, DPSR, DQEVAL, DQUDEC, DRKF1S, DRKFGS, DRKFSM, DSBVP, DSOLDE, DSOLUP,
+DSORTD, DTAMVC, DUPUP, ERRHAN
+
+****************
+Remarks
+****************
+
+MUSL is written by G.W.M. Staarink and R.M.M. Mattheij.
+Last update: 02-15-1988.
+
+
+****************
+Example of the use of MUSL
+****************
+
+Consider the ordinary differential equation
+
+        dx(t) / dt = L(t)x(t) + r(t) ,   0 <= t <= 6
+
+and a boundary condition MA x(0) + MB x(6) = BCV  with
+
+       | 1-2cos(2t)    0   1+2sin(2t) |
+L(t) = |   0           2     0        | ,
+       | -1+2sin(2t)   0   1+2cos(2t) |
+
+       | (-1+2cos(2t)-2sin(2t)) exp(t) |         | 1+exp(6) |
+r(t) = |       -exp(t)                 | , BCV = | 1+exp(6) |
+       | ( 1-2cos(2t)-2sin(2t)) exp(t) |         | 1+exp(6) |
+
+and MA = MB = I .
+
+                                        | exp(t) |
+The solution of this problem is: x(t) = | exp(t) |
+                                        | exp(t) |
+
+In the next program the solution is computed and compared
+to the exact solution.
+
+This program has been run on a Olivetti M24 PC., operating under MS-DOS V2.11,
+using the Olivetti MS-Fortran V3.13 R1.0 compiler and the MS Object Linker V2.01
+(large).
+
+
+
+      DOUBLE PRECISION A,B,MA(3,3),MB(3,3),BCV(3),AMP,ER(5),TI(15),
+     1 X(3,15),U(6,15),Q(3,3,15),D(3,15),PHIREC(6,15),W(42),
+     2 EXSOL,AE
+      INTEGER IW(9)
+      EXTERNAL FLIN,FDIF
+C
+C     SETTING OF THE INPUT PARAMETERS
+C
+      N = 3
+      IHOM = 1
+      ER(1) = 1.D-11
+      ER(2) = 1.D-6
+      ER(3) = 1.1D-16
+      NRTI = 10
+      NTI = 15
+      NU = 6
+      LW = 42
+      LIW = 9
+      A = 0.D0
+      B = 6.D0
+C
+C     SETTING THE BC MATRICES MA AND MB
+C
+      DO 1100 I = 1 , N
+        DO 1000 J = 1 , N
+          MA(I,J) = 0.D0
+          MB(I,J) = 0.D0
+ 1000   CONTINUE
+        MA(I,I) = 1.D0
+        MB(I,I) = 1.D0
+ 1100 CONTINUE
+C
+C     SETTING THE BC VECTOR BCV
+C
+      BCV(1) = 1.D0 + DEXP(6.D0)
+      BCV(2) = BCV(1)
+      BCV(3) = BCV(1)
+C
+C     CALL MUSL
+C
+      CALL MUSL(FLIN,FDIF,N,IHOM,A,B,MA,MB,BCV,AMP,ER,NRTI,TI,NTI,
+     1          X,U,NU,Q,D,KPART,PHIREC,W,LW,IW,LIW,IERROR)
+      IF ((IERROR.NE.0).AND.(IERROR.NE.200).AND.(IERROR.NE.213).AND.
+     1 (IERROR.NE.240)) GOTO 5000
+C
+C     COMPUTATION OF THE ABSOLUTE ERROR IN THE SOLUTION AND WRITING
+C     OF THE SOLUTION AT THE OUTPUTPOINTS
+C
+      WRITE(6,200)
+      WRITE(6,190) ER(4),ER(5)
+      WRITE(6,210)
+      WRITE(6,200)
+      DO 1500 K = 1 , NRTI
+        EXSOL = DEXP(TI(K))
+        AE = EXSOL - X(1,K)
+        WRITE(6,220) K,TI(K),X(1,K),EXSOL,AE
+        DO 1300 I = 2 , N
+          AE = EXSOL - X(I,K)
+          WRITE(6,230) X(I,K),EXSOL,AE
+ 1300   CONTINUE
+ 1500 CONTINUE
+      STOP
+ 5000 WRITE(6,300) IERROR
+      STOP
+C
+  190 FORMAT(' CONDITION NUMBER     = ',D10.3,/,
+     1       ' AMPLIFICATION FACTOR = ',D10.3,/)
+  200 FORMAT(' ')
+  210 FORMAT('  I ',6X,'T',8X,'APPROX. SOL.',9X,'EXACT SOL.',8X,
+     1 'ABS. ERROR')
+  220 FORMAT(' ',I3,3X,F7.4,3(3X,D16.9))
+  230 FORMAT(' ',13X,3(3X,D16.9))
+  300 FORMAT(' TERMINAL ERROR IN MUSL: IERROR = ',I4)
+C
+      END
+C
+      SUBROUTINE FLIN(T,Y,F)
+C     ----------------------
+C
+      DOUBLE PRECISION T,Y(3),F(3)
+      DOUBLE PRECISION TI,SI,CO
+C
+      TI = 2.D0 * T
+      SI = 2.D0 * DSIN(TI)
+      CO = 2.D0 * DCOS(TI)
+      F(1) = (1.D0 - CO) * Y(1) + (1.D0 + SI) * Y(3)
+      F(2) = 2.D0 * Y(2)
+      F(3) = (-1.D0 + SI) * Y(1) + (1.D0 + CO) * Y(3)
+C
+      RETURN
+C     END OF FLIN
+      END
+C
+      SUBROUTINE FDIF(T,Y,F)
+C     ----------------------
+C
+      DOUBLE PRECISION T,Y(3),F(3)
+      DOUBLE PRECISION TI,SI,CO
+C
+      CALL FLIN(T,Y,F)
+      TI = 2.D0 * T
+      SI = 2.D0 * DSIN(TI)
+      CO = 2.D0 * DCOS(TI)
+      TI = DEXP(T)
+      F(1) = F(1) + (-1.D0 + CO - SI)*TI
+      F(2) = F(2) - TI
+      F(3) = F(3) + (1.D0 - CO - SI)*TI
+C
+      RETURN
+C     END OF FDIF
+      END
+
+
+ CONDITION NUMBER     =  0.133D+01
+ AMPLIFICATION FACTOR =  0.221D+01
+
+  I       T        APPROX. SOL.         EXACT SOL.        ABS. ERROR
+
+   1    0.0000    0.100000001D+01    0.100000000D+01   -0.120756514D-07
+                  0.100000001D+01    0.100000000D+01   -0.149754604D-07
+                  0.100000001D+01    0.100000000D+01   -0.130719151D-07
+   2    0.6000    0.182211882D+01    0.182211880D+01   -0.230910355D-07
+                  0.182211882D+01    0.182211880D+01   -0.186150286D-07
+                  0.182211880D+01    0.182211880D+01    0.276479217D-08
+   3    1.2000    0.332011694D+01    0.332011692D+01   -0.162950000D-07
+                  0.332011695D+01    0.332011692D+01   -0.299702672D-07
+                  0.332011690D+01    0.332011692D+01    0.253190855D-07
+   4    1.8000    0.604964745D+01    0.604964746D+01    0.189447806D-07
+                  0.604964752D+01    0.604964746D+01   -0.521154062D-07
+                  0.604964743D+01    0.604964746D+01    0.319208493D-07
+   5    2.4000    0.110231763D+02    0.110231764D+02    0.450974791D-07
+                  0.110231764D+02    0.110231764D+02   -0.360646266D-07
+                  0.110231764D+02    0.110231764D+02    0.539664380D-08
+   6    3.0000    0.200855369D+02    0.200855369D+02    0.716164905D-08
+                  0.200855369D+02    0.200855369D+02   -0.169556351D-07
+                  0.200855369D+02    0.200855369D+02   -0.136451952D-07
+   7    3.6000    0.365982345D+02    0.365982344D+02   -0.159334164D-07
+                  0.365982345D+02    0.365982344D+02   -0.192572500D-07
+                  0.365982344D+02    0.365982344D+02   -0.500945774D-08
+   8    4.2000    0.666863311D+02    0.666863310D+02   -0.193062100D-07
+                  0.666863311D+02    0.666863310D+02   -0.313411270D-07
+                  0.666863310D+02    0.666863310D+02    0.170771948D-07
+   9    4.8000    0.121510418D+03    0.121510418D+03    0.102888684D-07
+                  0.121510418D+03    0.121510418D+03   -0.503274649D-07
+                  0.121510417D+03    0.121510418D+03    0.372506967D-07
+  10    5.4000    0.221406416D+03    0.221406416D+03    0.489649175D-07
+                  0.221406416D+03    0.221406416D+03   -0.360825183D-07
+                  0.221406416D+03    0.221406416D+03    0.207052722D-07
+  11    6.0000    0.403428793D+03    0.403428793D+03    0.120757022D-07
+                  0.403428793D+03    0.403428793D+03    0.149755124D-07
+                  0.403428793D+03    0.403428793D+03    0.130721105D-07
+
+
+
+
+****************
+SPECIFICATION  MUSN
+****************
+
+      SUBROUTINE MUSN(FDIF,Y0T,G,N,A,B,ER,TI,NTI,NRTI,AMP,ITLIM,Y,Q,U,
+     1                NU,D,PHI,KP,W,LW,IW,LIW,WG,LWG,IERROR)
+C
+C     DOUBLE PRECISION A,B,ER(5),TI(NTI),AMP,Y(N,NTI),Q(N,N,NTI),
+C    1                 U(NU,NTI),D(N,NTI),PHI(NU,NTI),W(LW),WG(LWG)
+C     INTEGER N,NTI,NRTI,ITLIM,NU,KP,LW,IW(LIW),LIW,LWG,IERROR
+C     EXTERNAL FDIF,Y0T,G
+
+****************
+Purpose
+****************
+
+MUSN solves the nonlinear two-point BVP
+
+       dy(t)/dt = f(t,y)           A <= t <= B  or B <= t <= A
+
+       g(y(a),y(b)) = 0 ,
+
+where y(t) and f(t,y) are N-vector functions.
+
+****************
+Method
+****************
+
+MUSN uses a multiple shooting method for computing an approximate solution of
+the BVP at specified output points, which are also used as shooting points.
+If necessary, more output points (shooting points) are inserted during computa-
+tion.
+For integration a fixed grid is used. Output points are also grid points and the
+minimum number of grid points between two output points is 5.
+
+****************
+Parameters
+****************
+
+FDIF    SUBROUTINE, supplied by the user with specification:
+
+        SUBROUTINE FDIF(T,Y,F)
+        DOUBLE PRECISION T,Y(N),F(N)
+
+        where N is the order of the system. FDIF must evaluate the righthand-
+        side of the differential equation, f(t,y) for t=T and y=Y and places the
+        result in F(1),...,F(N).
+        FDIF must be declared as EXTERNAL in the (sub)program from which MUSN is
+        called.
+
+Y0T     SUBROUTINE, supplied by the user with specification
+
+        SUBROUTINE Y0T(T,Y)
+        DOUBLE PRECISION T,Y(N)
+
+        where N is the order of the system. Y0T must evaluate the initial appro-
+        ximation y0(t) of the solution, for any value t=T and place the result
+        in Y(1),...,Y(N).
+        Y0T must be declared as EXTERNAL in the (sub)program from which MUSN is
+        called.
+
+G       SUBROUTINE, supplied by the user with specification
+
+        SUBROUTINE G(N,YA,YB,FG,DGA,DGB)
+        DOUBLE PRECISION YA(N),YB(N),FG(N),DGA(N,N),DGB(N,N)
+
+        where N is the order of the system. G must evaluate g(y(A),y(B)) for
+        y(A)=YA and y(B)=YB and place the result in FG(1),...,FG(N). Moreover G
+        must evaluate the Jacobians
+
+              dg(u,v)/du  for u = YA   and   dg(u,v)/dv for v = YB
+
+        and place the result in the arrays DGA anb DGB respectively.
+        G must be declared as EXTERNAL in the (sub)program from which MUSN is
+        called.
+
+N       INTEGER, the order of the system.
+        Unchanged on exit.
+
+A,B     DOUBLE PRECISION, the two boundary points.
+        Unchanged on exit.
+
+ER      DOUBLE PRECISION array of dimension (5).
+        On entry:
+        ER(1) must contain the required tolerance for solving the differential
+              equation.
+        ER(2) must contain the initial tolerance with which a first aproximate
+              solution will be computed. This approximation is then used as an
+              initial approximation for the computation of an solution with an
+              tolerance ER(2)*ER(2) and so on until the required tolerance is
+              reached. As an initial tolerance max(ER(1),min(ER(2),1.d-2)) will
+              be used.
+        ER(3) must contain the machine precision.
+        On exit:
+        ER(1), ER(2) and ER(3) are unchanged.
+        ER(4) contains an estimation of the condition number of the BVP.
+        ER(5) contains an estimated error amplification factor.
+
+TI      DOUBLE PRECISION array of dimension (NTI).
+        On entry : if NRTI = 1 TI must contain the output points in strict
+                   monotone order: A=TI(1) < TI(2) <...< TI(n)=B.
+        On exit TI(j), j=1,...,NRTI contains the output points.
+
+NTI     INTEGER, NTI is one of the dimension of  TI, X, S, Q, U en PHI.
+        NTI must be greater than or equal to the total number of necessary
+        output points + 1  (i.e. if the entry value for NRTI > 1, NTI may be
+        equal to the entry value of NRTI + 1).
+        Unchanged on exit.
+
+NRTI    INTEGER.
+        On entry NRTI is used to specify the output points. There are 3 ways to
+        specify the output points:
+        1) NRTI = 0, the output points are determined automatically using AMP.
+        2) NRTI = 1, the output points are supplied by the user in the array TI.
+        3) NRTI > 1, the subroutine computes the (NRTI+1) output points TI(k) by
+                           TI(k) = A + (k-1) * (B - A) / NRTI ;
+                     so TI(1) = A and TI(NRTI+1) = B.
+        Depending on the allowed increment between two succesive output points,
+        more output points may be inserted in cases 2 and 3.
+        On exit NRTI contains the total number of output points.
+
+AMP     DOUBLE PRECISION.
+        On entry AMP must contain the allowed increment between two output
+        points. AMP is used to determine output points and to assure that the
+        increment between two output points is at most AMP*AMP. A small value
+        for AMP may result in a large number of output points.
+        Unless 1 < AMP < .25 * sqrt(ER(1)/ER(3)) the default value
+        .25 * sqrt(ER(1)/ER(3)) is used.
+        Unchanged on exit.
+
+ITLIM   INTEGER, maximum number of allowed iteration.
+
+Y       DOUBLE PRECISION array of dimension (N,NTI).
+        On exit Y(.,i), i=1,...,NRTI contains the solution at the output points
+        TI(i), i=1,...,NRTI.
+
+Q       DOUBLE PRECISION array of dimension (N,N,NTI).
+        On exit  Q(.,.,i), i=1,...,NRTI contains the orthogonal factors of the
+        incremental recursion.
+
+U       DOUBLE PRECISION array of dimension (NU,NTI).
+        On exit U(.,i), i=2,...,NRTI contains the upper triangular factors of
+        the incremental recursion. The elements are stored column wise, the j-th
+        column of U is stored in U(nj+1,.),U(nj+2,.),...,U(nj+j,.), where
+        nj = (j-1) * j / 2.
+
+NU      INTEGER, NU is one of the dimension of U and PHI.
+        NU must be greater than or equal to N * (N+1) / 2.
+        Unchanged on exit.
+
+D       DOUBLE PRECISION array of dimension (N,NTI).
+        On exit D(.,i) i=2,...,NRTI contain the inhomogeneous terms of the
+        incremental recursion.
+
+PHI     DOUBLE PRECISION array of dimension (NU,NTI).
+        On exit PHI(.,i), i=1,...,NRTI contains the fundamental solution of the
+        incremental recursion. The fundamental solution is upper triangular and
+        stored in the same way as the upper triangular U.
+
+KP      INTEGER,
+        On exit KP contains the dimension of the increasing solution space.
+
+W       DOUBLE PRECISION array of dimension (LW).
+        Used as work space.
+
+LW      INTEGER.
+        LW is the dimension of W. LW >= 7*N + 3*N*NTI + 4*N*N .
+
+IW      INTEGER array of dimension (LIW).
+        Used as work space.
+
+LIW     INTEGER.
+        LIW is the dimension of IW. LIW >= 3*N + NTI .
+
+WG      DOUBLE PRECISION array of dimension (LWG).
+        WG is used to store the integration grid points.
+
+LWG     INTEGER.
+        LWG is the dimension of WG. LWG >= (total number of grid points) / 5.
+        The minimum number of grid points between 2 succesive output points is
+        5, so the minimum value for LWG is the number of actually used output
+        points. Initially a crude estimate for LWG has to be made (see also
+        IERROR 219).
+
+IERROR  INTEGER, error indicator.
+        On entry : if IERROR=1, diagnostics will be printed during computation.
+        On exit : if IERROR = 0 no errors have been detected.
+
+
+
+****************
+Error indicators
+****************
+
+IERROR
+
+0       No errors detected.
+
+101     INPUT error: either ER(1) < 0 or ER(2) < 0 or ER(3) < 0.
+        TERMINAL ERROR.
+
+105     INPUT error: either N < 1 or NRTI < 0 or NTI < 3 or NU < N*(N+1)/2 or
+        A=B.
+        TERMINAL ERROR.
+
+106     INPUT error: either LW < 7*N + 3*N*NTI + 4*N*N  or LIW < 3*N + NTI.
+        TERMINAL ERROR.
+
+120     INPUT error: the routine was called with NRTI=1, but the given output
+        points in the array TI are not in strict monotone order.
+        TERMINAL ERROR.
+
+121     INPUT error: the routine was called with NRTI=1, but the first given
+        output point or the last output point is not equal to A or B.
+        TERMINAL ERROR.
+
+122     INPUT error: the value of NTI is too small; the number of necessary
+        output points is greater than NTI-1.
+        TERMINAL ERROR.
+
+123     INPUT error: the value of LWG is less than the number of output points.
+        Increase the dimension of the array WG and the value of LWG.
+        TERMINAL ERROR.
+
+216     This indicates that during integration the requested accuracy could not
+        be achieved. User must increase error tolerance.
+        TERMINAL ERROR.
+
+219     This indicates that the routine needs more space to store the integra-
+        tion grid point. An estimate for the required workspace (i.e. the value
+        for LWG) is given.
+        TERMINAL ERROR.
+
+230     This indicates that Newton failed to converge.
+        TERMINAL ERROR.
+
+231     This indicates that the number of iteration has become greater than
+        ITLIM.
+        TERMINAL ERROR.
+
+240     This indicates that the global error is probably larger than the error
+        tolerance due to instabilities in the system. Most likely the system is
+        ill-conditioned. Output value is the estimated error amplification
+        factor.
+        WARNING ERROR.
+
+250     This indicate that one of the upper triangular matrices U is singular.
+        TERMINAL ERROR.
+
+260     This indicates that the problem is probably too ill-conditioned with
+        respect to the BC.
+        TERMINAL ERROR.
+
+
+****************
+Auxiliary routines
+****************
+
+Calls are made to the MUS library routines: DBCMAV, DCHINC, DCROUT, DCSAOJ,
+DCSHPO, DFQUS, DFUNRC, DGTUR, DINPRO, DINTCH, DJINGX, DKPCH, DLUDEC, DMATVC,
+DNEWPO, DPSR, DQEVAL, DQUDEC, DRKF1S, DRKFGG, DRKFGS, DRKFMS, DSBVP, DSOLDE,
+DSOLUP, DSORTD, DTAMVC, ERRHAN.
+
+****************
+Remarks
+****************
+
+MUSN is written by R.M.M. Mattheij and G.W.M. Staarink.
+Last update: 02-15-88.
+
+****************
+Example of the use of MUSN
+****************
+
+Consider the differential equation:
+
+        u' = .5  u*(w-u) / v
+        v' = -0.5 (w-u)
+        w' = (0.9 - 1000 (w-y) - 0.5 w(w-u)) / x
+        x' = 0.5 (w-u)
+        y' = -100 (y-w)
+
+and the boundary conditions:
+
+        u(0) = v(0) = w(0) = 1
+        x(0) = -10
+        w(1) = y(1)
+
+
+As an initial guess for the solution we take:
+
+        u(t) = 1 ; v(t) = 1 ; x(t) = -10 ;
+        w(t) = -4.5 t*t + 8.91 t + 1 ; y(t) = -4.5 t*t + 9 t + 0.91
+
+The next program computes and prints the solution for t=0, 0.1,0.2,...,1.
+This program has been run on a Olivetti M24 PC., operating under MS-DOS V2.11,
+using the Olivetti MS-Fortran V3.13 R1.0 compiler and the MS Object Linker V2.01
+(large).
+
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION ER(5),TI(12),X(5,12),Q(5,5,12),U(15,12),D(5,12),
+     1          PHIREC(15,12),W(315),WGR(20)
+      INTEGER IW(27)
+      EXTERNAL FDIF,Y0T,G
+C
+C     SETTING OF THE INPUT PARAMETERS
+C
+      N = 5
+      NU = 15
+      NTI = 12
+      LW = 315
+      LIW = 27
+      ER(3) = 1.1D-15
+      LWG = 20
+      ER(1) = 1.D-6
+      ER(2) = 1.D-2
+      A = 0.D0
+      B = 1.D0
+      NRTI = 10
+      AMP = 100
+      ITLIM = 20
+      CALL MUSN(FDIF,Y0T,G,N,A,B,ER,TI,NTI,NRTI,AMP,ITLIM,X,Q,U,NU,D,
+     1          PHIREC,KPART,W,LW,IW,LIW,WGR,LWG,IERROR)
+      .
+      .
+      .
+      END
+      SUBROUTINE FDIF(T,Y,F)
+C     ----------------------
+C
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION Y(5),F(5)
+C
+      Y3MY1 = Y(3) - Y(1)
+      Y3MY5 = Y(3) - Y(5)
+      F(1) = 0.5D0 * Y(1) * Y3MY1 / Y(2)
+      F(2) = - 0.5D0 * Y3MY1
+      F(3) = (0.9D0 - 1.D3 * Y3MY5 - 0.5D0 * Y(3) * Y3MY1) / Y(4)
+      F(4) = 0.5D0 * Y3MY1
+      F(5) =  1.D2 * Y3MY5
+      RETURN
+C     END OF FDIF
+      END
+      SUBROUTINE Y0T(T,X)
+C     -------------------
+C
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION X(5)
+C
+      X(1) = 1.D0
+      X(2) = 1.D0
+      X(4) = -10.D0
+      X(3) = - 4.5D0*T*T + 8.91D0 * T + 1.D0
+      X(5) = - 4.5D0*T*T + 9.D0 * T + 0.91D0
+      RETURN
+C     END OF Y0T
+      END
+      SUBROUTINE G(N,XA,XB,FG,DGA,DGB)
+C     --------------------------------
+C
+      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      DIMENSION XA(N),XB(N),FG(N),DGA(N,N),DGB(N,N)
+C
+      DO 1100 I = 1 , N
+      DO 1100 J = 1 , N
+        DGA(I,J) = 0.D0
+        DGB(I,J) = 0.D0
+ 1100 CONTINUE
+      DGA(1,1) = 1.D0
+      DGA(2,2) = 1.D0
+      DGA(3,3) = 1.D0
+      DGA(4,4) = 1.D0
+      DGB(5,3) = 1.D0
+      DGB(5,5) = -1.D0
+      FG(1) = XA(1) - 1.D0
+      FG(2) = XA(2) - 1.D0
+      FG(3) = XA(3) - 1.D0
+      FG(4) = XA(4) + 10.D0
+      FG(5) = XB(3) - XB(5)
+      RETURN
+C     END OF G
+      END
+
+
+
+  MUSN: IERROR =            0
+ A =    .0000   B =   1.0000
+ REQUIRED TOLERANCE =  1.00000D-06   START TOLERANCE  =  1.00000D-02
+ CONDITION NUMBER =  2.91986D+01   AMPLIFICATION FACTOR =  1.19392D+01
+ K-PARTITIONING = 2
+
+ I     T         Y1            Y2            Y3            Y4            Y5
+
+  1  .0000   1.00000D+00   1.00000D+00   1.00000D+00  -1.00000D+01   9.67963D-01
+  2  .1000   1.00701D+00   9.93036D-01   1.27014D+00  -9.99304D+00   1.24622D+00
+  3  .2000   1.02560D+00   9.75042D-01   1.47051D+00  -9.97504D+00   1.45280D+00
+  4  .3000   1.05313D+00   9.49550D-01   1.61931D+00  -9.94955D+00   1.60610D+00
+  5  .4000   1.08796D+00   9.19155D-01   1.73140D+00  -9.91915D+00   1.72137D+00
+  6  .5000   1.12900D+00   8.85737D-01   1.81775D+00  -9.88574D+00   1.80994D+00
+  7  .6000   1.17554D+00   8.50676D-01   1.88576D+00  -9.85068D+00   1.87957D+00
+  8  .7000   1.22696D+00   8.15025D-01   1.93990D+00  -9.81503D+00   1.93498D+00
+  9  .8000   1.28262D+00   7.79653D-01   1.98190D+00  -9.77965D+00   1.97819D+00
+ 10  .9000   1.34161D+00   7.45374D-01   2.01050D+00  -9.74537D+00   2.00827D+00
+ 11 1.0000   1.40232D+00   7.13102D-01   2.02032D+00  -9.71310D+00   2.02032D+00
